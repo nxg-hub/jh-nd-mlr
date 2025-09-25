@@ -6,12 +6,11 @@ export default async function handler(req, res) {
   }
 
 
-  const { recipient, messageBody, subject, attachment, senderName } = req.body;
+  const { recipient, messageBody, subject, attachment, senderName, apiKey } = req.body;
 
-  // API key validation
-  const apiKeyHeader = req.headers["x-api-key"];
-  if (apiKeyHeader !== process.env.API_KEY) {
-    return res.status(401).json({ error: "Invalid API key" });
+  // --- API key validation from request body ---
+  if (!apiKey || apiKey !== process.env.API_KEY) {
+    return res.status(401).json({ error: "Invalid or missing API key." });
   }
 
 
