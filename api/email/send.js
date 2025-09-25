@@ -5,43 +5,63 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
+  const {
+    recipient,
+    messageBody,
+    subject,
+    senderName,
+    inlineLogoBase64,   // Base64 string for inline logo (optional)
+    attachments         // Array of attachments [{ filename, contentBase64, contentType }]
+  } = req.body;
 
-  const { recipient, messageBody, subject, attachment, senderName } = req.body;
-
-// --- API key validation from header ---
+  // --- API key validation ---
   const apiKeyHeader = req.headers["x-api-key"];
   if (!apiKeyHeader || apiKeyHeader !== process.env.API_KEY) {
     return res.status(401).json({ error: "Invalid or missing API key." });
   }
 
-
   try {
     const transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST,
       port: process.env.SMTP_PORT,
-      secure: process.env.SMTP_PORT === 465, // true for 465, false otherwise
+      secure: process.env.SMTP_PORT === 465,
       auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS,
       },
     });
 
+    const emailAttachments = [];
+
+    // Inline logo
+    if (inlineLogoBase64) {
+      emailAttachments.push({
+        filename: "nxg-logo.png",
+        content: Buffer.from(inlineLogoBase64, "base64"),
+        cid: "nxgLogo",  // matches <img src="cid:nxgLogo">
+      });
+    }
+
+    // Other attachments (PDF, images, text, etc.)
+    if (attachments && Array.isArray(attachments)) {
+      attachments.forEach(att => {
+        if (att.filename && att.contentBase64) {
+          emailAttachments.push({
+            filename: att.filename,
+            content: Buffer.from(att.contentBase64, "base64"),
+            contentType: att.contentType || undefined, // optional, Nodemailer can infer
+          });
+        }
+      });
+    }
+
     const mailOptions = {
-      from: `"${senderName || "Payina"}" <${process.env.SMTP_USER}>`,
+      from: `"${senderName || "NXG JOB HUB"}" <${process.env.SMTP_USER}>`,
       to: recipient,
       subject: subject,
       html: messageBody,
+      attachments: emailAttachments.length > 0 ? emailAttachments : undefined,
     };
-
-    // Optional attachment (expects file path or base64 string depending on config)
-    if (attachment) {
-      mailOptions.attachments = [
-        {
-          filename: "attachment.txt",
-          content: attachment, // could be base64 or text depending on usage
-        },
-      ];
-    }
 
     await transporter.sendMail(mailOptions);
 
